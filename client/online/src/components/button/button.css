@@ -1,0 +1,13 @@
+.custom-button {
+  background-color: #007bff; /* Bootstrap primary color */
+  color: #fff; /* White text color */
+  border: none;
+  font-size: 1rem; /* Default font size */
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.custom-button:hover {
+  background-color: #0056b3; /* Darker shade of Bootstrap primary color */
+}

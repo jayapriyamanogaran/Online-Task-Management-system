@@ -1,0 +1,83 @@
+.top-navbar {
+    /* background: linear-gradient(135deg, #ebefba, #8adeed); */
+            background:  #333333; /* Linear gradient from bottom to top */
+
+    width: 100%; /* Ensure full width */
+    padding-left: 15px; /* Add padding to align with container */
+    padding-right: 15px; /* Add padding to align with container */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.navbar-brand, .nav-link, .nav-icon {
+    color: white !important; /* White text color for all elements */
+}
+.navbar-brand {
+    padding-left: 15px; /* Adjust left padding if needed */
+}
+
+.navbar-collapse {
+    padding-right: 15px; /* Adjust right padding if needed */
+}
+
+.nav-icons {
+    display: flex;
+    align-items: center;
+}
+
+.nav-icon {
+    position: relative;
+    margin-left: 15px; /* Add space between icons */
+}
+
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    background-color: red;
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .top-navbar .navbar-brand {
+        font-size: 1.2rem;
+             color: #ffffff; /* White text color */
+
+    }
+
+    .top-navbar .nav-link, .top-navbar .nav-icon {
+        font-size: 0.9rem;
+             color: #ffffff; /* White text color */
+
+    }
+
+    .top-navbar .nav-link {
+        padding: 0.5rem 1rem;
+             color: #ffffff; /* White text color */
+
+    }
+
+    .notification-badge {
+        top: -5px;
+        right: -5px;
+        font-size: 0.7rem;
+        padding: 3px 5px;
+    }
+
+    .navbar-collapse {
+        padding-right: 0; /* Ensure no padding on collapse for mobile */
+    }
+    
+}
+/* Prevent scrolling when dropdown is open */
+.navbar-collapse.show {
+    overflow: visible;
+}
+
+.navbar-nav .dropdown-menu {
+    position: absolute;
+    right: auto;
+    left: auto;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+}

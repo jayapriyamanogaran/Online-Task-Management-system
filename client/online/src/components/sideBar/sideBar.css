@@ -1,0 +1,24 @@
+/* sideNavBar.css */
+.side-navbar {
+background:  #333333;
+     color: #ffffff; /* White text color */
+    width: 250px; /* Adjust width as needed */
+    height: 92vh;
+    border-radius: "12px";
+
+}
+
+.side-navbar .nav-link {
+   color:  #C1C5CB;
+    padding: 1rem; /* Adjust padding as needed */
+}
+
+.side-navbar .nav-link svg {
+   color:  #C1C5CB;
+    margin-right: 0.5rem; /* Add spacing between icon and text */
+}
+
+.side-navbar .nav-link:hover, .side-navbar .nav-link.active  {
+   color: #ffffff;
+    background-color:#1E1E1E; /* Darker background color on hover/active */
+}

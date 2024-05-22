@@ -1,0 +1,14 @@
+.text-box-label {
+  color: #6c757d; /* Gray color for the label */
+  font-size: 0.875rem; /* Smaller label size */
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.text-box-value {
+  color: #000; /* Black color for the input value */
+  font-size: 1rem; /* Larger input text size */
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+}
