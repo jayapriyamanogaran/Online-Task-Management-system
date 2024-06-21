@@ -30,22 +30,26 @@ const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
 };
 
 
-const TableComponent = ({ columns, data, onAction }) => {
+const TableComponent = ({ columns, data, onAction, page, handlePagination, totalCount = 0 }) => {
     const itemsPerPage = 5; // Number of items per page
-    const [currentPage, setCurrentPage] = useState(1); // Current page number
-    const totalPages = Math.ceil(data.length / itemsPerPage); // Calculate total pages
+    const currentPage = page; // Current page number
+    // Current page number
+    const totalPages = Math.ceil(totalCount / itemsPerPage); // Calculate total pages
 
     // Calculate start and end indexes for pagination
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage - 1, data.length - 1);
+    const endIndex = Math.min(startIndex + itemsPerPage - 1, totalCount - 1);
 
     // Filter data based on current page
-    const currentData = data.slice(startIndex, endIndex + 1);
+    const currentData = data;
+    console.log(startIndex);
+    console.log(currentPage, "cur");
+    console.log(endIndex);
+    console.log(totalCount);
+    console.log(currentData);
 
     // Handle page change
-    const handlePageChange = (pageNumber) => {
-        setCurrentPage(pageNumber);
-    };
+
 
     return (
         <div className="table-container">
@@ -62,12 +66,19 @@ const TableComponent = ({ columns, data, onAction }) => {
                     {currentData?.map((row, rowIndex) => (
                         <tr key={rowIndex}>
                             {columns?.map((column, colIndex) => (
-                                <td key={colIndex}>{row[column.key]}</td>
+                                <td key={colIndex}>
+                                    {column.type === 'date' && new Date(row[column.key]).toLocaleDateString()}
+                                    {column.type === 'status' && (row[column.key] ? 'Active' : 'Inactive')}
+                                    {column.type !== 'date' && column.key !== 'status' && row[column.key]}
+
+                                </td>
                             ))}
+
                             <td>
+
                                 <DropdownButton
                                     id={`dropdown-${rowIndex}`}
-                                    title={<i className="fas fa-ellipsis-v"></i>}
+                                    // title={<i className="fas fa-ellipsis-v"></i>}
                                     variant="secondary"
                                 >
                                     <Dropdown.Item onClick={() => onAction('view', row)}>View</Dropdown.Item>
@@ -82,7 +93,7 @@ const TableComponent = ({ columns, data, onAction }) => {
             <PaginationComponent
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={handlePageChange}
+                onPageChange={handlePagination}
             />
         </div>
     );

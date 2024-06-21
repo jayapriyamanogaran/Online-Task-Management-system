@@ -4,8 +4,15 @@ import axios from 'axios';
 import TextBox from '../../components/textBox';
 import Button from '../../components/button';
 import './login.css'; // Import custom CSS for LoginScreen styling
+import { useNavigate } from 'react-router-dom';
+import { AppRoutes } from '../../Router/routes';
+import { config } from '../../utils/config';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { LocalStorageKeys } from '../../utils/constants';
 
 const LoginScreen = () => {
+    const navigate = useNavigate()
     const initialState = {
         email: "",
         password: "",
@@ -43,16 +50,21 @@ const LoginScreen = () => {
         if (validate()) {
             try {
                 // Sample Axios network call to login API
-                const response = await axios.post('https://example.com/login', {
-                    email: data?.email,
+                const response = await axios.post(`${config.apiUrl}login`, {
+                    email_id: data?.email,
                     password: data?.password,
                 });
+                localStorage.setItem(LocalStorageKeys.authToken, response?.data?.token)
+                localStorage.setItem(LocalStorageKeys.user, JSON.stringify(response?.data?.user))
                 setData({ ...initialState })
+                navigate(AppRoutes.employees)
 
                 console.log(response.data); // Handle response data
             } catch (error) {
                 setData({ ...initialState })
-                console.error('Login failed:', error.message);
+                toast.error(error?.response?.data?.error ?? error?.message, { autoClose: 2000 });
+                console.error('Login failed:', error?.response?.data?.error ?? error?.message);
+
             }
         }
     };
@@ -84,6 +96,13 @@ const LoginScreen = () => {
                                 passwordError={data?.error?.password?.length > 0 ? data?.error?.password : null}
 
                             />
+                        </Col>
+                    </Row>
+                    <br />
+                    <Row>
+                        <Col xs={12} onClick={() => navigate(AppRoutes.resetPassword)} >
+
+                            Forgot Password ?
                         </Col>
                     </Row>
                     <br />

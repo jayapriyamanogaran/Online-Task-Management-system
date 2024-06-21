@@ -25,6 +25,7 @@ const Button = ({
         type={type}
         className={`custom-button ${className}`}
         style={style}
+
     >
         {children}
     </BootstrapButton>

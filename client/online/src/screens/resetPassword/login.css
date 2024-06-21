@@ -1,0 +1,21 @@
+.login-screen-container {
+    background: linear-gradient(135deg, #ebefba, #8adeed); /* Gradient background */
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-form {
+    background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white background for the form */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-heading {
+    color: #191313; /* White color for the heading text */
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 30px; /* Add some space below the heading */
+}
