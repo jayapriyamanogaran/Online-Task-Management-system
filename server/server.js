@@ -198,7 +198,7 @@ app.post('/api/users_profiles/reset-password', async (req, res) => {
 
 // Upsert API for users_profiles
 app.post('/api/users_profiles/upsert', async (req, res) => {
-    const { id, name, email_id, phone_no, password, created_at = new Date(), updated_at = new Date(), role, is_active } = req.body;
+    const { id, name, email_id, phone_no, password, created_at = new Date(), updated_at = new Date(), role, is_active=true } = req.body;
     try {
         // Check if user already exists based on email
 
@@ -526,11 +526,11 @@ app.post('/api/dashboard', async (req, res) => {
                 (SELECT COUNT(*) FROM task_doubts WHERE  ${user_profile_id ? `user_id = $1` : '1=1'}) as total_task_doubts,
                 (SELECT COUNT(*) FROM projects WHERE is_active = true AND ${user_profile_id ? `team_members @> ARRAY[$1]` : '1=1'}) as total_projects,
                 (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1` : '1=1'}) as total_notifications,
-       (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1 AND is_read = false` : `is_read = false`}) as unread_notifications,
-       (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1 AND is_read = true` : ` is_read = true`}) as read_notifications,
-                (SELECT COUNT(*) FROM projects WHERE ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'Completed'` : `project_status = 'Completed'`}) as completed_projects,
-                (SELECT COUNT(*) FROM projects WHERE ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'In progress'` : `project_status = 'In progress'`}) as inprogress_projects,
-                (SELECT COUNT(*) FROM projects WHERE ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'Yet to start'` : `project_status = 'Yet to start'`}) as yet_to_start_projects,
+                (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1 AND is_read = false` : `is_read = false`}) as unread_notifications,
+                (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1 AND is_read = true` : `is_read = true`}) as read_notifications,
+                (SELECT COUNT(*) FROM projects WHERE is_active = true AND  ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'Completed'` : `project_status = 'Completed'`}) as completed_projects,
+                (SELECT COUNT(*) FROM projects WHERE is_active = true AND  ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'In progress'` : `project_status = 'In progress'`}) as inprogress_projects,
+                (SELECT COUNT(*) FROM projects WHERE is_active = true AND  ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'Yet to start'` : `project_status = 'Yet to start'`}) as yet_to_start_projects,
                 (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_status = true` : `task_status = true`}) as completed_tasks,
                 (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_status = false` : `task_status = false`}) as not_completed_tasks,
                 (SELECT COUNT(*) FROM task_doubts WHERE ${user_profile_id ? `user_id = $1 AND resolved = true` : `resolved = true`}) as resolved_task_doubts,
