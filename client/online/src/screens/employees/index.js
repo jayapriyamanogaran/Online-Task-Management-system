@@ -9,7 +9,7 @@ import CombinedNavBar from '../../Hocs';
 import FormGenerator from '../../components/formGenerator';
 import { NetWorkCallMethods, NetworkCall } from '../../networkCall';
 import { config } from '../../utils/config';
-import { UseDebounce } from '../../utils/constants';
+import { UseDebounce, toShow } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import moment from 'moment';
@@ -24,7 +24,7 @@ const EmployeeScreen = () => {
         created_at: "",
         updated_at: "",
         role: "",
-        is_active: false,
+        is_active: true,
         isEdit: false,
         isView: false,
         error: {
@@ -67,7 +67,7 @@ const EmployeeScreen = () => {
             password: "",
             email_id: "",
             role: "",
-            is_active: false,
+            is_active: true,
         });
         setShowFilterDialog(false);
     };
@@ -194,6 +194,8 @@ const EmployeeScreen = () => {
                 setShowAddDialog(true); // Show dialog with edit mode
                 break;
             case 'delete':
+
+                deleteAdd(row)
                 // Handle delete action
                 break;
             default:
@@ -214,6 +216,9 @@ const EmployeeScreen = () => {
             search: search,
             offset: offset,
             limit: limit,
+            role: formData?.role ?? undefined,
+            is_active: formData?.is_active ?? true,
+
         };
 
         NetworkCall(`${config.apiUrl}users_profiles`, NetWorkCallMethods.post, payload)
@@ -224,7 +229,33 @@ const EmployeeScreen = () => {
                 console.error('Error listing users_profiles:', error);
             });
     };
+    const deleteAdd = (data) => {
 
+
+        const payload = {
+            id: data?.id ?? undefined,
+            name: data?.name,
+            phone_no: data?.phone_no,
+            password: data?.password,
+            email_id: data?.email_id,
+            role: data?.role,
+            is_active: false,
+        };
+
+        NetworkCall(`${config.apiUrl}users_profiles/upsert`, NetWorkCallMethods.post, payload)
+            .then((res) => {
+                setData({ ...initialState }); // Reset form data after successful submission
+                setShowAddDialog(false); // Close dialog after successful submission
+                toast.success(`'Employee "Deleted"   successfully!'`, { autoClose: 2000 });
+                fetchData();
+                console.log('Employee added:', res.data);
+            })
+            .catch((error) => {
+                toast.error('Network error occurred!', { autoClose: 2000 });
+                console.error('Error adding employee:', error);
+            });
+
+    };
     // Handle form submission for adding or editing an employee
     const handleAdd = () => {
         if (validate()) {
@@ -242,7 +273,7 @@ const EmployeeScreen = () => {
                 .then((res) => {
                     setData({ ...initialState }); // Reset form data after successful submission
                     setShowAddDialog(false); // Close dialog after successful submission
-                    toast.success('Employee added successfully!', { autoClose: 2000 });
+                    toast.success(`'Employee  "Added"  successfully!'`, { autoClose: 2000 });
                     fetchData();
                     console.log('Employee added:', res.data);
                 })
@@ -314,24 +345,8 @@ const EmployeeScreen = () => {
     ];
 
     const filterFields = [
-        {
-            type: 'text',
-            label: 'Name',
-            value: formData?.name,
-            onChange: (value) => handleInputChange(value, 'name'),
-            required: true,
-            error: formData?.error?.name,
-            disabled: formData?.isView ? true : false,
-        },
-        {
-            type: 'text',
-            label: 'Email ID',
-            value: formData?.email_id,
-            onChange: (value) => handleInputChange(value, 'email_id'),
-            required: true,
-            error: formData?.error?.email_id,
-            disabled: formData?.isView ? true : false,
-        },
+
+
         {
             type: 'select',
             label: 'Role',
@@ -340,6 +355,7 @@ const EmployeeScreen = () => {
             required: true,
             error: formData?.error?.role,
             disabled: formData?.isView ? true : false,
+            multi: true,
             options: [
                 { value: 'HR', label: 'HR' },
                 { value: 'Developer', label: 'Developer' },
@@ -371,7 +387,7 @@ const EmployeeScreen = () => {
         <Container>
             <Row className='justify-content-between'>
                 <Col md={6}>
-                    <h2>Employees</h2>
+                    <h2>{toShow() ? "Employees" : "Colleagues"}</h2>
                     {/* Search box */}
                     <TextBox
                         label="Search"
@@ -380,19 +396,21 @@ const EmployeeScreen = () => {
                         onChange={(e) => handleSearch(e.target.value)}
                     />
                 </Col>
-                <Col md={6} className="text-end">
-                    {/* Filter icon */}
-                    <i className="fa fa-filter" onClick={handleFilterClick}></i>
-                    {/* Add button */}
-                    <Button className={"mr-1"} variant="primary" onClick={handleAddClick}>Add Employee</Button>
-                </Col>
+                {toShow() &&
+                    <Col md={6} className="text-end">
+                        {/* Filter icon */}
+                        <i className="fa fa-filter" onClick={handleFilterClick}></i>
+                        {/* Add button */}
+                        <Button className={"mr-1"} variant="primary" onClick={handleAddClick}>Add Employee</Button>
+                    </Col>
+                }
             </Row>
             <Row>
                 <Col xs={12}>
                     <TableComponent
                         columns={columns}
                         data={employees}
-                        onAction={handleAction}
+                        onAction={toShow() ? handleAction : false}
                         page={page}
                         handlePagination={handlePagination}
                         handleChangeLimit={handleChangeLimit}

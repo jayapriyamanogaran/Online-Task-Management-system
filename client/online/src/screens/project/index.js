@@ -9,7 +9,7 @@ import CombinedNavBar from '../../Hocs';
 import FormGenerator from '../../components/formGenerator';
 import { NetWorkCallMethods, NetworkCall } from '../../networkCall';
 import { config } from '../../utils/config';
-import { UseDebounce } from '../../utils/constants';
+import { UseDebounce, toShow, transformObjectsArray } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import moment from 'moment'
@@ -21,7 +21,7 @@ const ProjectScreen = () => {
         description: "",
         start_date: "",
         end_date: "",
-        is_active: false,
+        is_active: true,
         project_status: "",
         team_members: [], // Array of UUIDs referencing userprofiles
         isEdit: false,
@@ -39,6 +39,7 @@ const ProjectScreen = () => {
     const [showAddDialog, setShowAddDialog] = useState(false);
     const [showFilterDialog, setShowFilterDialog] = useState(false);
     const [projects, setProjects] = useState([]); // Assuming this will hold fetched project data
+    const [employeeOptions, setEmployeeOptions] = useState([]); // Assuming this will hold fetched project data
 
     // Form data state
     const [formData, setFormData] = useState({
@@ -63,7 +64,7 @@ const ProjectScreen = () => {
         setFormData({
             start_date: "",
             end_date: "",
-            is_active: false,
+            is_active: true,
             project_status: "",
             team_members: [],
         });
@@ -72,6 +73,7 @@ const ProjectScreen = () => {
 
     // Update state on input change
     const updateState = (value, key) => {
+        console.log(value, key);
         setData({
             ...data,
             [key]: value,
@@ -148,6 +150,7 @@ const ProjectScreen = () => {
 
     // Handle add button click
     const handleAddClick = () => {
+        setData({ ...initialState })
         setShowAddDialog(true);
     };
 
@@ -191,6 +194,7 @@ const ProjectScreen = () => {
                 setShowAddDialog(true); // Show dialog with edit mode
                 break;
             case 'delete':
+                deleteproject(row)
                 // Handle delete action
                 break;
             default:
@@ -201,6 +205,7 @@ const ProjectScreen = () => {
     // Fetch initial data from API on component mount
     useEffect(() => {
         fetchData();
+        fetchDataEmployee()
     }, []);
 
     console.log(formData);
@@ -221,6 +226,22 @@ const ProjectScreen = () => {
         NetworkCall(`${config.apiUrl}projects`, NetWorkCallMethods.post, payload)
             .then((res) => {
                 setProjects(res?.data);
+            })
+            .catch((error) => {
+                console.error('Error listing projects:', error);
+            });
+    };
+    const fetchDataEmployee = (offset = 0, limit = 100,) => {
+        const payload = {
+            offset: offset,
+            limit: limit,
+            role: ["Developer", "Designer", "Manager"]
+        };
+
+        NetworkCall(`${config.apiUrl}users_profiles`, NetWorkCallMethods.post, payload)
+            .then((res) => {
+                let data = res?.data ?? []
+                setEmployeeOptions(transformObjectsArray(data));
             })
             .catch((error) => {
                 console.error('Error listing projects:', error);
@@ -254,6 +275,32 @@ const ProjectScreen = () => {
                     console.error('Error adding project:', error);
                 });
         }
+    };
+    const deleteproject = (data) => {
+        const payload = {
+            id: data?.id ?? undefined,
+            name: data?.name,
+            description: data?.description,
+            start_date: data?.start_date,
+            end_date: data?.end_date,
+            is_active: false,
+            project_status: data?.project_status,
+            team_members: data?.team_members,
+        };
+
+        NetworkCall(`${config.apiUrl}projects/upsert`, NetWorkCallMethods.post, payload)
+            .then((res) => {
+                setData({ ...initialState }); // Reset form data after successful submission
+                setShowAddDialog(false); // Close dialog after successful submission
+                toast.success('Project Deleted successfully!', { autoClose: 2000 });
+                fetchData();
+                console.log('Project added:', res.data);
+            })
+            .catch((error) => {
+                toast.error('Network error occurred!', { autoClose: 2000 });
+                console.error('Error adding project:', error);
+            });
+
     };
     console.log(data);
     // Define form fields for FormGenerator component
@@ -307,6 +354,18 @@ const ProjectScreen = () => {
                 { value: 'In progress', label: 'In Progress' },
                 { value: 'Completed', label: 'Completed' },
             ],
+        },
+        {
+            type: 'select',
+            label: 'Team Members',
+            value: data?.team_members,
+            onChange: (value) => updateState(value, 'team_members'),
+            required: true,
+            error: data?.error?.team_members,
+            disabled: data?.isView ? true : false,
+            options: employeeOptions,
+            multi: true
+
         },
         {
             type: 'checkbox',
@@ -386,19 +445,21 @@ const ProjectScreen = () => {
                         onChange={(e) => handleSearch(e.target.value)}
                     />
                 </Col>
-                <Col md={6} className="text-end">
-                    {/* Filter icon */}
-                    <i className="fa fa-filter" onClick={handleFilterClick}></i>
-                    {/* Add button */}
-                    <Button className={"mr-1"} variant="primary" onClick={handleAddClick}>Add Project</Button>
-                </Col>
+                {toShow() &&
+                    <Col md={6} className="text-end">
+                        {/* Filter icon */}
+                        <i className="fa fa-filter" onClick={handleFilterClick}></i>
+                        {/* Add button */}
+                        <Button className={"mr-1"} variant="primary" onClick={handleAddClick}>Add Project</Button>
+                    </Col>
+                }
             </Row>
             <Row>
                 <Col xs={12}>
                     <TableComponent
                         columns={columns}
                         data={projects}
-                        onAction={handleAction}
+                        onAction={toShow() ? handleAction : false}
                         page={page}
                         handlePagination={handlePagination}
                         handleChangeLimit={handleChangeLimit}

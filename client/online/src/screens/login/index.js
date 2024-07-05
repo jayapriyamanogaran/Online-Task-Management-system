@@ -57,7 +57,7 @@ const LoginScreen = () => {
                 localStorage.setItem(LocalStorageKeys.authToken, response?.data?.token)
                 localStorage.setItem(LocalStorageKeys.user, JSON.stringify(response?.data?.user))
                 setData({ ...initialState })
-                navigate(AppRoutes.employees)
+                navigate(AppRoutes.dashboard)
 
                 console.log(response.data); // Handle response data
             } catch (error) {

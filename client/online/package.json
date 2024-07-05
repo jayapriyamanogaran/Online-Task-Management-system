@@ -18,6 +18,8 @@
     "react-router-dom": "^6.23.1",
     "react-scripts": "5.0.1",
     "react-toastify": "^10.0.5",
+    "recharts": "^2.12.7",
+    "victory-pie": "^37.0.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

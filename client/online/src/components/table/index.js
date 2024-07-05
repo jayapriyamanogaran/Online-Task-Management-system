@@ -67,8 +67,9 @@ const TableComponent = ({ columns, data, onAction, page, handlePagination, total
                         <tr key={rowIndex}>
                             {columns?.map((column, colIndex) => (
                                 <td key={colIndex}>
-                                    {column.type === 'date' && new Date(row[column.key]).toLocaleDateString()}
+                                    {column.type === 'date' && row[column.key]?.length > 0 && new Date(row[column.key]).toLocaleDateString()}
                                     {column.type === 'status' && (row[column.key] ? 'Active' : 'Inactive')}
+                                    {column.type === 'yes' && (row[column.key] ? 'Yes' : 'No')}
                                     {column.type !== 'date' && column.key !== 'status' && row[column.key]}
 
                                 </td>

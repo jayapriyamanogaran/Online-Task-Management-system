@@ -6,6 +6,7 @@ import { faHome, faTasks, faCog, faSignOutAlt } from '@fortawesome/free-solid-sv
 import './sideBar.css'; // Import custom CSS for additional styles
 import { Route, useNavigate } from 'react-router-dom';
 import { AppRoutes } from '../../Router/routes';
+import { toShow } from '../../utils/constants';
 
 
 const SideNavBar = () => {
@@ -13,7 +14,7 @@ const SideNavBar = () => {
     return (
         <div className="side-navbar">
             <Nav className="flex-column">
-                <Nav.Link onClick={() => false}>
+                <Nav.Link onClick={() => navigate(AppRoutes.dashboard)}>
                     <FontAwesomeIcon icon={faHome} />
                     Dashboard
                 </Nav.Link>
@@ -23,16 +24,17 @@ const SideNavBar = () => {
                 </Nav.Link>
                 <Nav.Link onClick={() => navigate(AppRoutes.employees)}>
                     <FontAwesomeIcon icon={faTasks} />
-                    Employees
+                    {toShow() ? "Employees" : "Colleagues"}
                 </Nav.Link>
                 <Nav.Link onClick={() => navigate(AppRoutes.tasks)}>
                     <FontAwesomeIcon icon={faTasks} />
                     Tasks
                 </Nav.Link>
-                <Nav.Link href="#settings">
-                    <FontAwesomeIcon icon={faCog} />
-                    Settings
+                <Nav.Link onClick={() => navigate(AppRoutes.tasksDoubts)}>
+                    <FontAwesomeIcon icon={faTasks} />
+                    Tasks Doubts
                 </Nav.Link>
+
                 <Nav.Link onClick={() => {
                     localStorage.clear()
                     navigate(AppRoutes.login)

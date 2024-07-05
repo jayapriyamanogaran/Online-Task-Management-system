@@ -96,7 +96,7 @@ app.post('/api/login', async (req, res) => {
 
     try {
         // Example: Fetch user from database based on email
-        const user = await client.query('SELECT * FROM users_profiles WHERE email_id = $1', [email_id]);
+        const user = await client.query('SELECT * FROM users_profiles WHERE LOWER(email_id) = LOWER($1)', [email_id.toLowerCase()]);
 
         if (!user.rows[0]) {
             return res.status(404).json({ error: 'User not found' });
@@ -123,6 +123,7 @@ app.post('/api/login', async (req, res) => {
                 email_id: user.rows[0].email_id,
                 name: user.rows[0].name,
                 role: user.rows[0].role,
+                ...user?.rows?.[0]
 
             }
         });
@@ -274,7 +275,14 @@ app.post('/api/users_profiles/upsert', async (req, res) => {
                      RETURNING *;`,
                 [uuidv4(), name, email_id, phone_no, hashedPassword, created_at, updated_at, role, is_active]
             );
-
+            await transporter.sendMail({
+                from: 'jpmca31@gmail.com',
+                to: email_id,
+                subject: `Welcome to Our Organization`,
+                text: `Dear ${name},
+                Welcome aboard to Our Organization! We are thrilled to have you join our team of talented members. Your skills and expertise will play a crucial role in our ongoing projects and the future growth of our organization.
+ we are committed to fostering a collaborative and innovative environment where every team member contributes to our collective success. We believe in pushing boundaries, embracing challenges, and delivering exceptional results.`
+            });
             res.json(result.rows[0]);
 
         }
@@ -318,6 +326,16 @@ app.post('/api/projects/upsert', async (req, res) => {
                      RETURNING *;`,
                 [uuidv4(), name, description, start_date, end_date, project_status, created_at, updated_at, team_members, is_active]
             );
+            if (result?.rows[0]) {
+                team_members?.map(async (i) => {
+                    await client.query(
+                        `INSERT INTO notifications (id, name, send_to,description, notification_status,project_id,notification_date,is_active,is_read)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9)
+                     RETURNING *;`,
+                        [uuidv4(), `"You are added to New Project" ${name}`, i, description, "projects", result?.rows?.[0]?.id ?? undefined, new Date(), true, false]
+                    );
+                })
+            }
 
             res.json(result.rows[0]);
         }
@@ -329,7 +347,7 @@ app.post('/api/projects/upsert', async (req, res) => {
 
 // Upsert API for tasks
 app.post('/api/tasks/upsert', async (req, res) => {
-    const { id, name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at = new Date(), updated_at = new Date(), is_active } = req.body;
+    const { id, name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at = new Date(), updated_at = new Date(), is_active, task_status = false } = req.body;
 
     try {
         if (id) {
@@ -345,22 +363,31 @@ app.post('/api/tasks/upsert', async (req, res) => {
                      assigned_id = COALESCE($8, assigned_id),
                      created_at = COALESCE($9, created_at),
                      updated_at = COALESCE($10, updated_at),
-                     is_active = COALESCE($11, is_active)
+                     is_active = COALESCE($11, is_active),
+                     task_status = COALESCE($12, task_status)
                  WHERE id = $1
                  RETURNING *;`,
-                [id, name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at, updated_at, is_active]
+                [id, name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at, updated_at, is_active, task_status]
             );
 
             res.json(updatedTask.rows[0]);
         } else {
             // If ID doesn't exist, insert a new task
             const result = await client.query(
-                `INSERT INTO tasks (id, name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at, updated_at, is_active)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                `INSERT INTO tasks (id, name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at, updated_at, is_active,task_status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12)
                  RETURNING *;`,
-                [uuidv4(), name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at, updated_at, is_active]
+                [uuidv4(), name, project_id, description, start_date, end_date, task_priority, assigned_id, created_at, updated_at, is_active, task_status]
             );
+            if (result?.rows[0]) {
+                await client.query(
+                    `INSERT INTO notifications (id, name, send_to,description, notification_status,task_id,notification_date,is_active,is_read)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9)
+                     RETURNING *;`,
+                    [uuidv4(), `"New Task is Assigned To you" ${name}`, assigned_id, description, "tasks", result?.rows?.[0]?.id ?? undefined, new Date(), true, false]
 
+                );
+            }
             res.json(result.rows[0]);
         }
     } catch (error) {
@@ -370,8 +397,8 @@ app.post('/api/tasks/upsert', async (req, res) => {
 });
 
 // Upsert API for notifications
-app.post('/api/notifications/upsert', async (req, res) => {
-    const { id, name, send_to, description, notification_status, task_id, notification_date, is_active, is_read } = req.body;
+app.post('/api/notification/upsert', async (req, res) => {
+    const { id, name, send_to, description, notification_status, task_id, notification_date = new Date(), is_active = true, is_read = false } = req.body;
 
     try {
         if (id?.length > 0) {
@@ -381,11 +408,11 @@ app.post('/api/notifications/upsert', async (req, res) => {
                      SET name = COALESCE($2, name),
                          send_to = COALESCE($3, send_to),
                          description = COALESCE($4, description),
-                         notifications_status = COALESCE($5, notifications_status),
+                         notification_status = COALESCE($5, notification_status),
                          task_id = COALESCE($6, task_id),
                          notification_date = COALESCE($7,notification_date),
                          is_active = COALESCE($8, is_active),
-                         is_read= COALESCE($9,is_read),
+                         is_read= COALESCE($9,is_read)
                      WHERE id = $1
                      RETURNING *;`,
                 [id, name, send_to, description, notification_status, task_id, notification_date, is_active, is_read]
@@ -396,8 +423,8 @@ app.post('/api/notifications/upsert', async (req, res) => {
         } else {
             // If the noupdatednotifications doesn't exist, insert a new one
             const result = await client.query(
-                `INSERT INTO notifications (id, name, send_to,description, notification_status,task_id,notification_date,is_active,is_read]
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9,)
+                `INSERT INTO notifications (id, name, send_to,description, notification_status,task_id,notification_date,is_active,is_read)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9)
                      RETURNING *;`,
                 [uuidv4(), name, send_to, description, notification_status, task_id, notification_date, is_active, is_read]
 
@@ -414,28 +441,29 @@ app.post('/api/notifications/upsert', async (req, res) => {
 
 
 // Get all users_profiles
-// Get user profiles with filters
 app.post('/api/users_profiles', async (req, res) => {
-    let { user_profile_id, search, start_date, end_date, offset = 0, limit = 10, is_active = true } = req.body;
+    let { user_profile_id, search, start_date, end_date, offset = 0, limit = 10, is_active = true, role = [] } = req.body;
 
     try {
         let query = 'SELECT * FROM users_profiles';
         let countQuery = 'SELECT COUNT(*) FROM users_profiles';
-
         let paramCount = 1;
         let params = [];
         let filterAdded = false;
 
-        // Filter by user_profile_id and join if provided
+        // Construct the base query and count query
         if (user_profile_id && user_profile_id.length > 0) {
-            query += ' WHERE $' + paramCount + ' = ANY(users_profiles.team_members)';
-            countQuery += ' WHERE $' + paramCount + ' = ANY(users_profiles.team_members)';
-            params.push(user_profile_id);
-            paramCount++;
+            query += filterAdded ? ' AND' : ' WHERE';
+            countQuery += filterAdded ? ' AND' : ' WHERE';
+            query += ' users_profiles.id IN (' + user_profile_id.map((_, index) => '$' + (paramCount + index)).join(', ') + ')';
+            countQuery += ' users_profiles.id IN (' + user_profile_id.map((_, index) => '$' + (paramCount + index)).join(', ') + ')';
+            params.push(...user_profile_id);
+            paramCount += user_profile_id.length;
             filterAdded = true;
+
         }
 
-        // Apply filters based on conditions
+        // Add other filters based on conditions
         if (search) {
             query += filterAdded ? ' AND' : ' WHERE';
             countQuery += filterAdded ? ' AND' : ' WHERE';
@@ -468,6 +496,18 @@ app.post('/api/users_profiles', async (req, res) => {
             filterAdded = true;
         }
 
+        if (role.length > 0) {
+            query += filterAdded ? ' AND' : ' WHERE';
+            countQuery += filterAdded ? ' AND' : ' WHERE';
+            query += ' users_profiles.role IN (' + role.map((_, index) => '$' + (paramCount + index)).join(', ') + ')';
+            countQuery += ' users_profiles.role IN (' + role.map((_, index) => '$' + (paramCount + index)).join(', ') + ')';
+            params.push(...role);
+            paramCount += role.length;
+            filterAdded = true;
+        }
+
+
+
         // Add is_active filter
         query += filterAdded ? ' AND' : ' WHERE';
         countQuery += filterAdded ? ' AND' : ' WHERE';
@@ -487,12 +527,11 @@ app.post('/api/users_profiles', async (req, res) => {
         params.push(offset, limit);
 
         // Log the final query and params for debugging
-        console.log("Final Query:", query);
-        console.log("Parameters:", params);
+
 
         // Execute main query to fetch filtered user profiles
         const result = await client.query(query, params);
-        const finalResults = result.rows?.map((profile) => ({
+        const finalResults = result.rows.map((profile) => ({
             ...profile,
             isActive: profile.is_active ? "active" : "inactive",
             totalCount
@@ -504,14 +543,79 @@ app.post('/api/users_profiles', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+app.post('/api/dashboard', async (req, res) => {
+    const { user_profile_id } = req.query;
+
+    try {
+        let query = `
+            SELECT 
+                (SELECT COUNT(*) FROM users_profiles WHERE is_active = true AND ${user_profile_id ? `id = $1` : '1=1'}) as total_users_profiles,
+                (SELECT COUNT(*) FROM users_profiles WHERE is_active = true AND ${user_profile_id ? `id = $1 AND role = 'Admin'` : ` role = 'Admin'`}) as total_admin,
+                (SELECT COUNT(*) FROM users_profiles WHERE is_active = true AND ${user_profile_id ? `id = $1 AND role = 'HR'` : ` role = 'HR'`}) as total_hr,
+                (SELECT COUNT(*) FROM users_profiles WHERE is_active = true AND ${user_profile_id ? `id = $1 AND role = 'Manager'` : ` role = 'Manager'`}) as total_manager,
+                (SELECT COUNT(*) FROM users_profiles WHERE is_active = true AND ${user_profile_id ? `id = $1 AND role = 'Developer'` : ` role = 'Developer'`}) as total_developer,
+                (SELECT COUNT(*) FROM users_profiles WHERE is_active = true AND ${user_profile_id ? `id = $1 AND role = 'Designer'` : ` role = 'Designer'`}) as total_designer,
+                (SELECT COUNT(*) FROM tasks WHERE is_active = true AND ${user_profile_id ? `assigned_id = $1` : '1=1'}) as total_tasks,
+                (SELECT COUNT(*) FROM task_doubts WHERE  ${user_profile_id ? `user_id = $1` : '1=1'}) as total_task_doubts,
+                (SELECT COUNT(*) FROM projects WHERE is_active = true AND ${user_profile_id ? `team_members @> ARRAY[$1]` : '1=1'}) as total_projects,
+                (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1` : '1=1'}) as total_notifications,
+       (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1 AND is_read = false` : `is_read = false`}) as unread_notifications,
+       (SELECT COUNT(*) FROM notifications WHERE is_active = true AND ${user_profile_id ? `send_to = $1 AND is_read = true` : ` is_read = true`}) as read_notifications,
+                (SELECT COUNT(*) FROM projects WHERE ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'Completed'` : `project_status = 'Completed'`}) as completed_projects,
+                (SELECT COUNT(*) FROM projects WHERE ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'In progress'` : `project_status = 'In progress'`}) as inprogress_projects,
+                (SELECT COUNT(*) FROM projects WHERE ${user_profile_id ? `team_members @> ARRAY[$1] AND project_status = 'Yet to start'` : `project_status = 'Yet to start'`}) as yet_to_start_projects,
+                (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_status = true` : `task_status = true`}) as completed_tasks,
+                (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_status = false` : `task_status = false`}) as not_completed_tasks,
+                (SELECT COUNT(*) FROM task_doubts WHERE ${user_profile_id ? `user_id = $1 AND resolved = true` : `resolved = true`}) as resolved_task_doubts,
+                (SELECT COUNT(*) FROM task_doubts WHERE ${user_profile_id ? `user_id = $1 AND resolved = false` : `resolved = false`}) as not_resolved_task_doubts,
+                (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_priority = 'high'` : `task_priority = 'high'`}) as high_priority_tasks,
+                (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_priority = 'medium'` : `task_priority = 'medium'`}) as medium_priority_tasks,
+                (SELECT COUNT(*) FROM tasks WHERE ${user_profile_id ? `assigned_id = $1 AND task_priority = 'low'` : `task_priority = 'low'`}) as low_priority_tasks
+                `;
+
+        let params = user_profile_id ? [user_profile_id] : [];
+
+        const result = await client.query(query, params);
+        const [totals] = result.rows;
+
+        res.json({
+            total_tasks: parseInt(totals.total_tasks),
+            total_projects: parseInt(totals.total_projects),
+            total_notifications: parseInt(totals.total_notifications),
+            total_task_doubts: parseInt(totals.total_task_doubts),
+            unread_notifications: parseInt(totals.unread_notifications),
+            read_notifications: parseInt(totals.read_notifications),
+            completed_projects: parseInt(totals.completed_projects),
+            inprogress_projects: parseInt(totals.inprogress_projects),
+            yet_to_start_projects: parseInt(totals.yet_to_start_projects),
+            completed_tasks: parseInt(totals.completed_tasks),
+            not_completed_tasks: parseInt(totals.not_completed_tasks),
+            resolved_task_doubts: parseInt(totals.resolved_task_doubts),
+            not_resolved_task_doubts: parseInt(totals.not_resolved_task_doubts),
+            high_priority_tasks: parseInt(totals.high_priority_tasks),
+            medium_priority_tasks: parseInt(totals.medium_priority_tasks),
+            low_priority_tasks: parseInt(totals.low_priority_tasks),
+            users_profiles: !user_profile_id && parseInt(totals.total_users_profiles),
+            total_admin: !user_profile_id && parseInt(totals.total_admin),
+            total_hr: !user_profile_id && parseInt(totals.total_hr),
+            total_manager: !user_profile_id && parseInt(totals.total_manager),
+            total_developer: !user_profile_id && parseInt(totals.total_developer),
+            total_designer: !user_profile_id && parseInt(totals.total_designer),
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 
 // Get projects assigned to a specific user profile
 app.post('/api/projects', async (req, res) => {
-    let { user_profile_id, search, start_date, end_date, offset = 0, limit = 10, is_active = true } = req.body;
+    let { user_profile_id, search, start_date, end_date, offset = 0, limit = 10, is_active = true, project_id } = req.body;
 
     try {
-        let query = 'SELECT p.* FROM projects p';
+        let query = 'SELECT p.* FROM projects p ';
         let countQuery = 'SELECT COUNT(*) FROM projects p';
 
         let paramCount = 1;
@@ -520,9 +624,20 @@ app.post('/api/projects', async (req, res) => {
 
         // Join with user_profile if filtering by user_profile_id
         if (user_profile_id && user_profile_id.length > 0) {
+            query += filterAdded ? ' AND' : ' WHERE';
+            countQuery += filterAdded ? ' AND' : ' WHERE';
             query += ' JOIN user_profile up ON $' + paramCount + ' = ANY(p.team_members) AND up.user_profile_id = $' + paramCount;
             countQuery += ' JOIN user_profile up ON $' + paramCount + ' = ANY(p.team_members) AND up.user_profile_id = $' + paramCount;
             params.push(user_profile_id);
+            paramCount++;
+            filterAdded = true;
+        }
+        if (project_id && project_id.length > 0) {
+            query += filterAdded ? ' AND' : ' WHERE';
+            countQuery += filterAdded ? ' AND' : ' WHERE';
+            query += ' p.id = $' + paramCount;
+            countQuery += ' p.id = $' + paramCount;
+            params.push(project_id);
             paramCount++;
             filterAdded = true;
         }
@@ -581,8 +696,7 @@ app.post('/api/projects', async (req, res) => {
         params.push(offset, limit);
 
         // Log the final query and params for debugging
-        console.log("Final Query:", query);
-        console.log("Parameters:", params);
+
 
         // Execute main query to fetch filtered projects
         const result = await client.query(query, params);
@@ -604,8 +718,8 @@ app.post('/api/tasks', async (req, res) => {
     let { user_profile_id, search, start_date, end_date, offset = 0, limit = 10, is_active = true } = req.body;
 
     try {
-        let query = 'SELECT t.* FROM tasks t';
-        let countQuery = 'SELECT COUNT(*) FROM tasks t';
+        let query = 'SELECT t.*,projects.name AS project_name, users_profiles.name AS user_profile_name FROM tasks t LEFT JOIN projects ON t.project_id = projects.id LEFT JOIN users_profiles ON t.assigned_id = users_profiles.id';
+        let countQuery = 'SELECT COUNT(*) FROM tasks t LEFT JOIN projects ON t.project_id = projects.id LEFT JOIN users_profiles ON t.assigned_id = users_profiles.id';
 
         let paramCount = 1;
         let params = [];
@@ -613,8 +727,10 @@ app.post('/api/tasks', async (req, res) => {
 
         // Join with user_profile if filtering by user_profile_id
         if (user_profile_id && user_profile_id.length > 0) {
-            query += ' JOIN user_profile up ON $' + paramCount + ' = ANY(t.assigned_to) AND up.user_profile_id = $' + paramCount;
-            countQuery += ' JOIN user_profile up ON $' + paramCount + ' = ANY(t.assigned_to) AND up.user_profile_id = $' + paramCount;
+            query += filterAdded ? ' AND' : ' WHERE';
+            countQuery += filterAdded ? ' AND' : ' WHERE';
+            query += ' t.assigned_id = $' + paramCount;
+            countQuery += ' t.assigned_id = $' + paramCount;
             params.push(user_profile_id);
             paramCount++;
             filterAdded = true;
@@ -662,7 +778,8 @@ app.post('/api/tasks', async (req, res) => {
         countQuery += ' t.is_active = $' + paramCount;
         params.push(is_active);
         paramCount++;
-
+        console.log("Final Query:", countQuery);
+        console.log("Parameters:", params);
         // Execute count query to get total count
         const countResult = await client.query(countQuery, params);
         const totalCount = parseInt(countResult.rows[0].count);
@@ -674,8 +791,7 @@ app.post('/api/tasks', async (req, res) => {
         params.push(offset, limit);
 
         // Log the final query and params for debugging
-        console.log("Final Query:", query);
-        console.log("Parameters:", params);
+
 
         // Execute main query to fetch filtered tasks
         const result = await client.query(query, params);
@@ -692,9 +808,92 @@ app.post('/api/tasks', async (req, res) => {
     }
 });
 
+// Get tasks assigned to a specific user profile
+// Get tasks assigned to a specific user profile
+app.post('/api/task_doubts', async (req, res) => {
+    let { user_profile_id, search, offset = 0, limit = 10, is_active = true } = req.body;
+
+    try {
+        let query = `
+            SELECT 
+                td.*,
+                tasks.name AS task_name,
+                up.name AS asked_by,
+                upp.name AS asked_to
+            FROM 
+                task_doubts td
+            LEFT JOIN 
+                tasks ON td.task_id = tasks.id
+            LEFT JOIN 
+                users_profiles up ON td.user_id = up.id
+            LEFT JOIN 
+                users_profiles upp ON td.resolved_by = upp.id
+        `;
+        let countQuery = 'SELECT COUNT(*) FROM task_doubts td';
+
+        let paramCount = 1;
+        let params = [];
+        let filterAdded = false;
+
+        // Join with user_profile if filtering by user_profile_id
+        if (user_profile_id && user_profile_id.length > 0) {
+            query += ' JOIN users_profiles up ON td.user_id = up.id AND up.id = $' + paramCount;
+            countQuery += ' JOIN users_profiles up ON td.user_id = up.id AND up.id = $' + paramCount;
+            params.push(user_profile_id);
+            paramCount++;
+            filterAdded = true;
+        }
+
+        // Apply filters based on conditions
+        if (search) {
+            query += filterAdded ? ' AND' : ' WHERE';
+            countQuery += filterAdded ? ' AND' : ' WHERE';
+            query += ' td.doubt_message ILIKE $' + paramCount;
+            countQuery += ' td.doubt_message ILIKE $' + paramCount;
+            params.push(`%${search}%`);
+            paramCount++;
+            filterAdded = true;
+        }
+
+        // Add is_active filter
+        query += filterAdded ? ' AND' : ' WHERE';
+        countQuery += filterAdded ? ' AND' : ' WHERE';
+        query += ' td.is_active = $' + paramCount;
+        countQuery += ' td.is_active = $' + paramCount;
+        params.push(is_active);
+        paramCount++;
+
+
+        // Execute count query to get total count
+        const countResult = await client.query(countQuery, params);
+        const totalCount = parseInt(countResult.rows[0].count);
+
+        // Apply offset and limit to main query
+        offset = parseInt(offset) || 0;
+        limit = parseInt(limit) || 10;
+        query += ' OFFSET $' + paramCount + ' LIMIT $' + (paramCount + 1);
+        params.push(offset, limit);
+
+        // Log the final query and params for debugging
+
+
+        // Execute main query to fetch filtered tasks
+        const result = await client.query(query, params);
+        const finalResults = result.rows?.map((doubt) => ({
+            ...doubt,
+            isActive: doubt.is_active ? "active" : "in-active",
+            totalCount
+        }));
+
+        res.json(finalResults);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 app.post('/api/task_doubts/upsert', async (req, res) => {
-    const { id, task_id, user_id, doubt_message, resolved, resolved_by, resolved_date, raised_date } = req.body;
+    const { id, task_id, user_id, doubt_message, resolved, resolved_by, resolved_date = resolved ? new Date() : null, raised_date = new Date(), is_active = true } = req.body;
 
     try {
         if (id?.length > 0) {
@@ -707,10 +906,11 @@ app.post('/api/task_doubts/upsert', async (req, res) => {
                          resolved = COALESCE($5, resolved),
                          resolved_by = COALESCE($6, resolved_by),
                           resolved_date= COALESCE($7,resolved_date ),
-                          raised_date= COALESCE($7,raised_date ),
+                          raised_date= COALESCE($8,raised_date ),
+                          is_active= COALESCE($9,is_active )
                      WHERE id = $1
                      RETURNING *;`,
-                [id, task_id, user_id, doubt_message, resolved, resolved_by, resolved_date, raised_date]
+                [id, task_id, user_id, doubt_message, resolved, resolved_by, resolved_date, raised_date, is_active]
             );
 
             res.json(updatedTask_doubts.rows[0]);
@@ -718,13 +918,28 @@ app.post('/api/task_doubts/upsert', async (req, res) => {
         } else {
             // If the task doesn't exist, insert a new one
             const result = await client.query(
-                `INSERT INTO task_doubts (id, task_id,user_id,doubt_message,resolved,resolved_by,resolved_date,raised_date)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,)
+                `INSERT INTO task_doubts (id, task_id,user_id,doubt_message,resolved,resolved_by,resolved_date,raised_date,is_active)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9)
                      RETURNING *;`,
-                [uuidv4(), task_id, user_id, doubt_message, resolved, resolved_by, resolved_date, raised_date]
+                [uuidv4(), task_id, user_id, doubt_message, resolved, resolved_by, resolved_date, raised_date, is_active]
 
             );
+            if (result?.rows[0]) {
+                resolved ? await client.query(
+                    `INSERT INTO notifications (id, name, send_to,description, notification_status,task_doubt_id,notification_date,is_active,is_read)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9)
+                     RETURNING *;`,
+                    [uuidv4(), "The Task Doubt is You asked is resolved", user_id, doubt_message, "tasks_doubts", result?.rows?.[0]?.id ?? undefined, new Date(), true, false]
 
+                ) :
+                    await client.query(
+                        `INSERT INTO notifications (id, name, send_to,description, notification_status,task_doubt_id,notification_date,is_active,is_read)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9)
+                     RETURNING *;`,
+                        [uuidv4(), `"New Task Doubt is Assigned To you" ${doubt_message}`, resolved_by, doubt_message, "tasks_doubts", result?.rows?.[0]?.id ?? undefined, new Date(), true, false]
+
+                    );
+            }
             res.json(result.rows[0]);
         }
     } catch (error) {
@@ -732,6 +947,65 @@ app.post('/api/task_doubts/upsert', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+// Get tasks assigned to a specific user profile
+app.post('/api/notifications', async (req, res) => {
+    let { user_profile_id, is_common = false, offset = 0, limit = 10000 } = req.body;
+
+    try {
+        let query = 'SELECT t.* FROM notifications t';
+        let countQuery = 'SELECT COUNT(*) FROM notifications t WHERE t.is_read = false';
+
+        let params = [];
+        let paramCount = 1;
+        let filterAdded = false;
+
+        // Conditionally add filters based on request parameters
+        if (user_profile_id && user_profile_id.length > 0) {
+            query += ' WHERE t.send_to = $' + paramCount;
+            countQuery += ' AND t.send_to = $' + paramCount;
+            params.push(user_profile_id);
+            paramCount++;
+            filterAdded = true;
+        }
+
+        if (is_common) {
+            query += filterAdded ? ' AND' : ' WHERE';
+            query += ' t.notification_status = $' + paramCount;
+            countQuery += ' AND t.notification_status = $' + paramCount;
+            params.push("All");
+            paramCount++;
+            filterAdded = true;
+        }
+        console.log(countQuery);
+        console.log(params);
+        // Execute count query to get total count
+        const countResult = await client.query(countQuery, params);
+        const totalCount = parseInt(countResult.rows[0].count);
+
+        // Apply offset and limit to main query
+        offset = parseInt(offset) || 0;
+        limit = parseInt(limit) || 10;
+        query += ' OFFSET $' + paramCount + ' LIMIT $' + (paramCount + 1);
+        params.push(offset, limit);
+
+        // Log the final query and params for debugging
+        console.log(query);
+        console.log(params);
+
+        // Execute main query to fetch filtered notifications
+        const result = await client.query(query, params);
+        const finalResults = result.rows.map((notification) => ({
+            ...notification,
+            totalCount
+        }));
+
+        res.json(finalResults);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 app.listen(port, () => {
     console.log(`server is running ${port}`);

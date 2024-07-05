@@ -1,0 +1,24 @@
+.custom-card {
+    background-color: #f8f9fa; /* Light gray background */
+    border: 1px solid #ced4da; /* Gray border */
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Shadow for depth */
+    transition: border-color 0.3s ease; 
+      border-left: 5px solid  #007bff; /* Green border for read notifications */
+        border-right: 5px solid  #007bff; /* Smooth transition for border color */
+}
+
+
+
+.custom-card .card-body {
+    padding: 20px;
+    color: #343a40; /* Dark text color */
+}
+
+.custom-card .card-title {
+    color: #007bff; /* Blue title color */
+    font-size: 1.2rem; /* Larger font size */
+}
+
+
+

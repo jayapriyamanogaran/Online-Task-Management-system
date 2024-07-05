@@ -102,8 +102,12 @@ const FormGenerator = ({
                                 <Form.Label>{field?.label}</Form.Label>
                                 <Form.Control
                                     as="select"
-                                    value={field?.value || ''}
-                                    onChange={(e) => field?.onChange(e.target.value)}
+                                    multiple={field.multi}  // Set multiple attribute based on field.multi
+                                    value={field.multi ? field.value || [] : field.value || ''}  // Ensure value is array for multi-select
+                                    onChange={(e) => {
+                                        const selectedValue = e.target.value;
+                                        field.onChange(field.multi ? Array.from(e.target.selectedOptions, option => option.value) : selectedValue);
+                                    }}
                                     placeholder={`Select ${field?.label}`}
                                     disabled={field?.disabled}
                                     required={field?.required}

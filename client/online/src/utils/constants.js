@@ -18,3 +18,16 @@ export let LocalStorageKeys = {
     user: "user"
 
 };
+export const transformObjectsArray = (arr) => {
+    return arr?.map(obj => ({
+        value: obj.id,
+        label: obj.name,
+        ...obj
+    }));
+}
+
+export const toShow = () => {
+    const user = localStorage.getItem(LocalStorageKeys.user) && JSON.parse(localStorage.getItem(LocalStorageKeys.user))
+    const allowedRoles = ["Admin", "HR", "Manager"]
+    return allowedRoles.includes(user?.role)
+}

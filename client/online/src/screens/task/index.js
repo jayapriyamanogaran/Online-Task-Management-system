@@ -9,9 +9,10 @@ import CombinedNavBar from '../../Hocs';
 import FormGenerator from '../../components/formGenerator';
 import { NetWorkCallMethods, NetworkCall } from '../../networkCall';
 import { config } from '../../utils/config';
-import { UseDebounce } from '../../utils/constants';
+import { UseDebounce, toShow, transformObjectsArray } from '../../utils/constants';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { faL } from '@fortawesome/free-solid-svg-icons';
 
 const TaskScreen = () => {
     const initialState = {
@@ -21,11 +22,12 @@ const TaskScreen = () => {
         startDate: "",
         endDate: "",
         taskPriority: "",
-        isActive: false,
+        isActive: true,
         projectId: "", // Assuming you'll manage project selection
         assignedId: "", // Assuming you'll manage user assignment
         isEdit: false,
         isView: false,
+        taskStatus: false,
         error: {
             name: "",
             description: "",
@@ -39,7 +41,8 @@ const TaskScreen = () => {
     const [showAddDialog, setShowAddDialog] = useState(false);
     const [showFilterDialog, setShowFilterDialog] = useState(false);
     const [ll, setLL] = useState([]); // Assuming this will hold fetched data
-
+    const [projects, setProjects] = useState([]); // Assuming this will hold fetched project data
+    const [employeeOptions, setEmployeeOptions] = useState([]);
     // Form data state
     const [formData, setFormData] = useState({
         startDate: "",
@@ -48,6 +51,7 @@ const TaskScreen = () => {
         isActive: true,
         projectId: "", // Assuming you'll manage project selection
         assignedId: "",
+        taskStatus: ""
     });
 
     // Handle input change for form fields
@@ -65,7 +69,7 @@ const TaskScreen = () => {
             startDate: "",
             endDate: "",
             taskPriority: "",
-            isActive: false,
+            isActive: true,
             projectId: "", // Assuming you'll manage project selection
             assignedId: "",
         })
@@ -116,15 +120,15 @@ const TaskScreen = () => {
         // Validate taskPriority if it's a required field
         // Assuming taskPriority is a dropdown or select field, ensure it's validated appropriately
 
-        // if (data?.projectId?.trim() === "") {
-        //     isValid = false;
-        //     error.projectId = "Project ID is required";
-        // }
+        if (data?.projectId?.trim() === "") {
+            isValid = false;
+            error.projectId = "Project ID is required";
+        }
 
-        // if (data?.assignedId?.trim() === "") {
-        //     isValid = false;
-        //     error.assignedId = "Assigned ID is required";
-        // }
+        if (data?.assignedId?.trim() === "") {
+            isValid = false;
+            error.assignedId = "Assigned ID is required";
+        }
 
         setData({ ...data, error });
         return isValid;
@@ -180,7 +184,7 @@ const TaskScreen = () => {
                     isActive: row?.is_active,
                     projectId: row?.project_id,
                     assignedId: row?.assigned_id,
-
+                    task_status: row?.taskStatus,
                     isView: true,
                     isEdit: false,
                 });
@@ -196,6 +200,7 @@ const TaskScreen = () => {
                     isActive: row?.is_active,
                     projectId: row?.project_id,
                     assignedId: row?.assigned_id,
+                    task_status: row?.taskStatus,
                     id: row?.id,
                     isEdit: true,
                     isView: false,
@@ -205,6 +210,7 @@ const TaskScreen = () => {
                 break;
 
             case 'delete':
+                deleteTask(row)
                 // Handle delete action
                 break;
             default:
@@ -215,10 +221,54 @@ const TaskScreen = () => {
     // Fetch initial data from API on component mount
     useEffect(() => {
         fetchData();
+        fetchDataProjects()
     }, []);
+    useEffect(() => {
+        if (data?.projectId?.length > 0) {
+            fetchDataEmployee()
+        }
+    }, [data?.projectId]);
 
-    console.log(formData);
+    console.log(data, "///");
+    // Fetch data function
+    const fetchDataProjects = (offset = 0, limit = 5, search) => {
+        const payload = {
+            search: search,
+            offset: offset,
+            limit: limit,
+            is_active: true
+        };
 
+        NetworkCall(`${config.apiUrl}projects`, NetWorkCallMethods.post, payload)
+            .then((res) => {
+                let data = res?.data ?? []
+
+                setProjects(transformObjectsArray(data));
+            })
+            .catch((error) => {
+                console.error('Error listing projects:', error);
+            });
+    };
+    const fetchDataEmployee = (offset = 0, limit = 100) => {
+        const tm = [].concat(...projects?.filter((i) => i?.id === data?.projectId)?.map((i) => i.team_members))
+        if (tm?.length > 0) {
+            const payload = {
+                offset: offset,
+                limit: limit,
+                role: ["Developer", "Designer", "Manager"],
+                user_profile_id: tm?.length > 0 ? tm : []
+            };
+
+            NetworkCall(`${config.apiUrl}users_profiles`, NetWorkCallMethods.post, payload)
+                .then((res) => {
+                    let data = res?.data ?? []
+                    setEmployeeOptions(transformObjectsArray(data));
+                })
+                .catch((error) => {
+                    console.error('Error listing projects:', error);
+                });
+        }
+    };
     // Fetch data function
     const fetchData = (offset = 0, limit = 5, search) => {
         const payload = {
@@ -229,7 +279,8 @@ const TaskScreen = () => {
             end_date: formData?.endDate ?? undefined,
             project_id: formData?.projectId ?? undefined,
             assigned_id: formData?.assignedId ?? undefined,
-            is_active: formData?.isActive ?? undefined
+            is_active: formData?.isActive ?? undefined,
+            task_status: formData?.taskStatus ?? undefined
         }
         NetworkCall(`${config.apiUrl}tasks`, NetWorkCallMethods.post, payload
         ).then((res) => {
@@ -237,6 +288,38 @@ const TaskScreen = () => {
         }).catch((error) => {
             console.error('Error lisiting tasks:', error);
         })
+
+    };
+    const deleteTask = (data) => {
+        const payload = {
+            id: data?.id ?? undefined,
+            name: data?.name,
+            description: data?.description,
+            start_date: data?.startDate,
+            end_date: data?.endDate,
+            task_priority: data?.taskPriority,
+            is_active: false,
+            project_id: data?.projectId,
+            assigned_id: data?.assignedId ?? undefined,
+            task_status: data?.taskStatus ?? undefined,
+        }
+        // Sample Axios call to add new employee
+        NetworkCall(`${config.apiUrl}tasks/upsert`, NetWorkCallMethods.post, payload
+        ).then((res) => {
+            setData({ ...initialState }); // Reset form data after successful submission
+            setShowAddDialog(false); // Close dialog after successful submission
+            toast.success('Task Deleted succeessfully!', { autoClose: 2000 });
+            fetchData()
+            console.log('Task added:', res.data);
+        }).catch((error) => {
+            toast.error('Network error occurred!', { autoClose: 2000 });
+
+            console.error('Error adding employee:', error);
+        })
+
+
+
+
 
     };
 
@@ -252,16 +335,17 @@ const TaskScreen = () => {
                 task_priority: data?.taskPriority,
                 is_active: data?.isActive,
                 project_id: data?.projectId,
-                assigned_id: data?.assignedId,
+                assigned_id: data?.assignedId ?? undefined,
+                task_status: data?.taskStatus ?? undefined,
             }
             // Sample Axios call to add new employee
             NetworkCall(`${config.apiUrl}tasks/upsert`, NetWorkCallMethods.post, payload
             ).then((res) => {
                 setData({ ...initialState }); // Reset form data after successful submission
                 setShowAddDialog(false); // Close dialog after successful submission
-                toast.success('Employee added succeessfully!', { autoClose: 2000 });
+                toast.success('Task added succeessfully!', { autoClose: 2000 });
                 fetchData()
-                console.log('Employee added:', res.data);
+                console.log('Task added:', res.data);
             }).catch((error) => {
                 toast.error('Network error occurred!', { autoClose: 2000 });
 
@@ -331,6 +415,37 @@ const TaskScreen = () => {
             onChange: (value) => updateState(value, 'isActive'),
             disabled: data?.isView ? true : false
         },
+        {
+            type: 'select',
+            label: 'Project',
+            value: data?.projectId,
+            onChange: (value) => updateState(value, 'projectId'),
+            required: true,
+            error: data?.error?.projectId,
+            disabled: data?.isView ? true : false,
+            options: projects,
+            multi: false
+
+        },
+        {
+            type: 'select',
+            label: 'Assigned To',
+            value: data?.assignedId,
+            onChange: (value) => updateState(value, 'assignedId'),
+            required: true,
+            error: data?.error?.assignedId,
+            disabled: data?.isView ? true : false,
+            options: employeeOptions,
+            multi: false
+
+        },
+        {
+            type: 'checkbox',
+            label: 'Task Completed',
+            value: data?.taskStatus,
+            onChange: (value) => updateState(value, 'taskStatus'),
+            disabled: data?.isView ? true : false
+        },
         // Add projectId and assignedId fields if needed (e.g., select or autocomplete)
     ];
     const filterFields = [
@@ -372,6 +487,13 @@ const TaskScreen = () => {
             onChange: (value) => handleInputChange(value, 'isActive'),
             disabled: formData?.isView ? true : false
         },
+        {
+            type: 'checkbox',
+            label: 'Task Completed',
+            value: formData?.taskStatus,
+            onChange: (value) => handleInputChange(value, 'taskStatus'),
+            disabled: formData?.isView ? true : false
+        },
         // Add projectId and assignedId fields if needed (e.g., select or autocomplete)
     ];
 
@@ -384,8 +506,9 @@ const TaskScreen = () => {
         // { label: 'Updated At', key: 'updated_at' },
         { label: 'Task Priority', key: 'task_priority' },
         { label: 'Is Active', key: 'isActive', },
-        { label: 'Project ID', key: 'project_id' },
-        { label: 'Assigned ID', key: 'assigned_id' }
+        { label: 'Project ', key: 'project_name' },
+        { label: 'Assigned To', key: 'user_profile_name' },
+        { label: 'Task Completed', key: 'task_status', type: "yes" },
     ];
 
     return (
@@ -402,16 +525,20 @@ const TaskScreen = () => {
                     />
                     {/* Table component */}
                 </Col>
-                <Col md={6} className="text-end">
-                    {/* Filter icon */}
-                    <i className="fa fa-filter" onClick={handleFilterClick}></i>
-                    {/* Add button */}
-                    <Button className={"mr-1"} variant="primary" onClick={handleAddClick}>Add Task</Button>
-                </Col>
+                {toShow() &&
+                    <Col md={6} className="text-end">
+                        {/* Filter icon */}
+                        <i className="fa fa-filter" onClick={handleFilterClick}></i>
+                        {/* Add button */}
+                        <Button className={"mr-1"} variant="primary" onClick={handleAddClick}>Add Task</Button>
+                    </Col>
+                }
             </Row>
             <Row>
                 <Col xs={12}>
-                    <TableComponent columns={columns} data={ll} onAction={handleAction}
+                    <TableComponent columns={columns} data={ll}
+
+                        onAction={handleAction}
                         page={page}
                         handlePagination={handlePagination}
                         handleChangeLimit={handleChangeLimit}
