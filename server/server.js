@@ -193,43 +193,7 @@ app.post('/api/users_profiles/reset-password', async (req, res) => {
     }
 });
 // Route: /api/users_profiles/upsert
-app.post('/api/users_profile/upsert', async (req, res) => {
-    const { email_id, password, first_name, last_name } = req.body;
 
-    try {
-        // Check if user already exists based on email
-        const existingUser = await client.query('SELECT * FROM users_profiles WHERE email_id = $1', [email_id]);
-
-        if (existingUser.rows.length > 0) {
-            // User exists, update the profile (if needed in your logic)
-            // Example: Update only if certain conditions met, otherwise send a conflict response
-            return res.status(409).json({ error: 'User already exists' });
-        }
-
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert new user into database
-        const newUser = await client.query(
-            'INSERT INTO users_profiles (email_id, password, first_name, last_name) VALUES ($1, $2, $3, $4) RETURNING *',
-            [email_id, hashedPassword, first_name, last_name]
-        );
-
-        // Generate JWT token
-        const payload = {
-            id: newUser.rows[0].id,
-            email_id: newUser.rows[0].email_id,
-            // Add more fields as needed
-        };
-
-        const token = jwt.sign(payload, jwtSecret, { expiresIn: '1h' });
-
-        res.json({ token });
-    } catch (error) {
-        console.error('Error in /api/users_profiles/upsert:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
 
 
 // Upsert API for users_profiles
@@ -281,7 +245,10 @@ app.post('/api/users_profiles/upsert', async (req, res) => {
                 subject: `Welcome to Our Organization`,
                 text: `Dear ${name},
                 Welcome aboard to Our Organization! We are thrilled to have you join our team of talented members. Your skills and expertise will play a crucial role in our ongoing projects and the future growth of our organization.
- we are committed to fostering a collaborative and innovative environment where every team member contributes to our collective success. We believe in pushing boundaries, embracing challenges, and delivering exceptional results.`
+ we are committed to fostering a collaborative and innovative environment where every team member contributes to our collective success. We believe in pushing boundaries, embracing challenges, and delivering exceptional results.
+ your login details email =${email_id},password =${password}. please reset your password ASAP.
+ 
+ `
             });
             res.json(result.rows[0]);
 
