@@ -5,3 +5,6 @@ const port = 5002;
 app.listen(port, () => {
     console.log(`server is running ${port}`);
 })
+app.get('/', (req, res) => {
+    res.send('Task Management Backend');
+});
