@@ -33,7 +33,7 @@ const TopNavBar = () => {
 
     return (
         <Navbar expand="lg" className="top-navbar">
-            <Navbar.Brand href="#home">Your Company</Navbar.Brand>
+            <Navbar.Brand href="#home">ABCD Software Company</Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
                 <Nav className="ml-auto nav-icons">
